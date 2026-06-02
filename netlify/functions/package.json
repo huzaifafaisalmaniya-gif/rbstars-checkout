@@ -1,0 +1,8 @@
+{
+  "name": "shopify-stripe-checkout",
+  "version": "1.0.0",
+  "description": "Netlify serverless functions bridging Shopify cart to Stripe",
+  "dependencies": {
+    "stripe": "^14.0.0"
+  }
+}
