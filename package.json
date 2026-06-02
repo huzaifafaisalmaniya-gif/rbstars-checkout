@@ -1,0 +1,8 @@
+{
+  "name": "shopify-stripe-checkout",
+  "version": "1.0.0",
+  "description": "Netlify serverless functions",
+  "dependencies": {
+    "stripe": "^14.0.0"
+  }
+}
