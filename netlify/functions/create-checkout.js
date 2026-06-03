@@ -15,11 +15,18 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers, body: "Method Not Allowed" };
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: "Stripe key not configured." }),
+    };
+  }
+
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const body = JSON.parse(event.body);
 
-    // Accept either "items" (sent by Shopify frontend) or "cartItems"
     const cartItems = body.cartItems || body.items;
     const paymentMethod = body.paymentMethod;
 
@@ -31,7 +38,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // Build Stripe line items from Shopify cart
     const lineItems = cartItems.map((item) => ({
       price_data: {
         currency: "usd",
@@ -43,21 +49,17 @@ exports.handler = async (event) => {
             shopify_product_id: String(item.product_id || ""),
           },
         },
-        // Shopify returns price in cents already as integer (e.g. 900 = $9.00)
         unit_amount: item.price,
       },
       quantity: item.quantity,
     }));
 
-    const YOUR_DOMAIN =
-      process.env.SHOPIFY_STORE_URL || "https://yourstore.myshopify.com";
+    const YOUR_DOMAIN = process.env.SHOPIFY_STORE_URL || "https://rbstars.store";
 
-    // Determine payment method types
     let payment_method_types = ["card"];
     if (paymentMethod === "paypal") {
       payment_method_types = ["paypal"];
     }
-    // Apple Pay is auto-enabled when card is enabled on eligible browsers
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types,
