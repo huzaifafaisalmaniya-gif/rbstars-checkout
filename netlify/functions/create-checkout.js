@@ -17,7 +17,19 @@ exports.handler = async (event) => {
 
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const { cartItems, paymentMethod } = JSON.parse(event.body);
+    const body = JSON.parse(event.body);
+
+    // Accept either "items" (sent by Shopify frontend) or "cartItems"
+    const cartItems = body.cartItems || body.items;
+    const paymentMethod = body.paymentMethod;
+
+    if (!cartItems || cartItems.length === 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: "No items provided." }),
+      };
+    }
 
     // Build Stripe line items from Shopify cart
     const lineItems = cartItems.map((item) => ({
@@ -28,7 +40,7 @@ exports.handler = async (event) => {
           images: item.image ? [item.image] : [],
           metadata: {
             shopify_variant_id: String(item.variant_id),
-            shopify_product_id: String(item.product_id),
+            shopify_product_id: String(item.product_id || ""),
           },
         },
         // Shopify returns price in cents already as integer (e.g. 900 = $9.00)
@@ -37,16 +49,15 @@ exports.handler = async (event) => {
       quantity: item.quantity,
     }));
 
-    const YOUR_DOMAIN = process.env.SHOPIFY_STORE_URL || "https://yourstore.myshopify.com";
+    const YOUR_DOMAIN =
+      process.env.SHOPIFY_STORE_URL || "https://yourstore.myshopify.com";
 
     // Determine payment method types
     let payment_method_types = ["card"];
     if (paymentMethod === "paypal") {
       payment_method_types = ["paypal"];
-    } else if (paymentMethod === "apple_pay") {
-      // Apple Pay is auto-enabled when card is enabled on eligible browsers
-      payment_method_types = ["card"];
     }
+    // Apple Pay is auto-enabled when card is enabled on eligible browsers
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types,
